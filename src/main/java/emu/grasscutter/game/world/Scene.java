@@ -358,10 +358,9 @@ public class Scene {
                         // 攻击了主人 " + String.valueOf(Grasscutter.playerPetMap.get(attacker.getId())) + "
                         // 伤害为 " + String.valueOf(result.getDamage()) + "! (宠物不能攻击自己主人)" );
                         Grasscutter.getLogger()
-                                .info("Pet ID: " + String.valueOf(attacker.getId())
-                                        + " attacked their owner, with UID: "
+                                .info("Pet ID: " + String.valueOf(attacker.getId()) + " attacked their owner, (UID: "
                                         + String.valueOf(Grasscutter.playerPetMap.get(attacker.getId()))
-                                        + " The output damage was: "
+                                        + ") The output damage was: "
                                         + String.valueOf(result.getDamage())
                                         + "! (The owner does not take any damage)");
 
@@ -371,10 +370,9 @@ public class Scene {
                         // 攻击了其他玩家 " + String.valueOf(Grasscutter.playerPetMap.get(attacker.getId())) +
                         // " 伤害为 " + String.valueOf(result.getDamage()) + "! (宠物不能攻击其他玩家)" );
                         Grasscutter.getLogger()
-                                .info("Player UID: " + String.valueOf(attacker.getId())
-                                        + " attacked their own pet, with ID: "
+                                .info("Pet ID: " + String.valueOf(attacker.getId()) + " attacked other player, (UID: "
                                         + String.valueOf(Grasscutter.playerPetMap.get(attacker.getId()))
-                                        + " the output damage was: "
+                                        + ") the output damage was: "
                                         + String.valueOf(result.getDamage())
                                         + "! (The player does not take any damage)");
 
@@ -388,7 +386,7 @@ public class Scene {
                 Grasscutter.getLogger()
                         .info("Monster ID: " + String.valueOf(attacker.getId()) + " attacked Player UID: "
                                 + String.valueOf(player.getUid())
-                                + "'s pet, with ID: " + String.valueOf(attacker.getId()) + " The output damage was: "
+                                + " with pet ID: " + String.valueOf(attacker.getId()) + " The output damage was: "
                                 + String.valueOf(result.getDamage()));
 
             }
@@ -411,9 +409,8 @@ public class Scene {
                     }
                     // Grasscutter.getLogger().info("玩家 " + String.valueOf(player.getUid()) + " : ("
                     // + String.valueOf(attacker.getId()) +")" + " 的场景中存在以下玩家信息:" );
-                    Grasscutter.getLogger()
-                            .info("Player UID: " + String.valueOf(player.getUid()) + " attacked Monster ID: ("
-                                    + String.valueOf(attacker.getId()) + ")" + " Information of the scene:");
+                    Grasscutter.getLogger().info("Player UID: " + String.valueOf(player.getUid()) + " with pet ID: ("
+                            + String.valueOf(attacker.getId()) + ")" + " Attacked. Information of the scene:");
 
                     for (GameEntity gameEntity : Grasscutter.playerGameEntityMap.values()) {
                         if (gameEntity instanceof EntityAvatar) {
@@ -454,7 +451,7 @@ public class Scene {
                         // String.valueOf(otherUid) + " : (" + String.valueOf(otherGameEntity.getId())
                         // +")" + " 伤害为 " + String.valueOf(result.getDamage()) );
                         Grasscutter.getLogger()
-                                .info("Player UID: " + String.valueOf(player.getUid()) + "'s pet: ("
+                                .info("Player UID: " + String.valueOf(player.getUid()) + " with pet ID: ("
                                         + String.valueOf(attacker.getId()) + ")" + " attacked Player UID: "
                                         + String.valueOf(otherUid)
                                         + "'s pet: (" + String.valueOf(otherGameEntity.getId()) + ")"
@@ -471,7 +468,7 @@ public class Scene {
                     Grasscutter.getLogger()
                             .info("Player UID: " + String.valueOf(player.getUid()) + " with pet ID: "
                                     + String.valueOf(attacker.getId())
-                                    + " attacked monster, with ID: " + String.valueOf(target.getId())
+                                    + " attacked a monster, with ID: " + String.valueOf(target.getId())
                                     + " the output damage was: "
                                     + String.valueOf(result.getDamage()));
 
