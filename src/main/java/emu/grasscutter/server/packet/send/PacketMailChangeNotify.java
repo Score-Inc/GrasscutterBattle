@@ -6,7 +6,12 @@ import emu.grasscutter.game.mail.Mail;
 import emu.grasscutter.game.player.Player;
 import emu.grasscutter.net.packet.BasePacket;
 import emu.grasscutter.net.packet.PacketOpcodes;
-import emu.grasscutter.net.proto.*;
+import emu.grasscutter.net.proto.MailChangeNotifyOuterClass.MailChangeNotify;
+import emu.grasscutter.net.proto.MailTextContentOuterClass.MailTextContent;
+import emu.grasscutter.net.proto.MailItemOuterClass.MailItem;
+import emu.grasscutter.net.proto.MailDataOuterClass.MailData;
+
+import emu.grasscutter.net.proto.EquipParamOuterClass.EquipParam;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +19,7 @@ import java.util.List;
 public class PacketMailChangeNotify extends BasePacket {
 
     public PacketMailChangeNotify(Player player, Mail message) {
-        this (player, new ArrayList<Mail>(){{add(message);}});
+        this (player, new ArrayList<Mail>() {{add(message);}});
     }
 
     public PacketMailChangeNotify(Player player, List<Mail> mailList) {
@@ -24,28 +29,28 @@ public class PacketMailChangeNotify extends BasePacket {
     public PacketMailChangeNotify(Player player, List<Mail> mailList, List<Integer> delMailIdList) {
         super(PacketOpcodes.MailChangeNotify);
 
-        MailChangeNotifyOuterClass.MailChangeNotify.Builder proto = MailChangeNotifyOuterClass.MailChangeNotify.newBuilder();
+        var proto = MailChangeNotify.newBuilder();
 
         if (mailList != null) {
             for (Mail message : mailList) {
-                MailTextContentOuterClass.MailTextContent.Builder mailTextContent = MailTextContentOuterClass.MailTextContent.newBuilder();
+                var mailTextContent = MailTextContent.newBuilder();
                 mailTextContent.setTitle(message.mailContent.title);
                 mailTextContent.setContent(message.mailContent.content);
                 mailTextContent.setSender(message.mailContent.sender);
 
-                List<MailItemOuterClass.MailItem> mailItems = new ArrayList<MailItemOuterClass.MailItem>();
+                List<MailItem> mailItems = new ArrayList<>();
 
                 for (Mail.MailItem item : message.itemList) {
-                    MailItemOuterClass.MailItem.Builder mailItem = MailItemOuterClass.MailItem.newBuilder();
-                    ItemParamOuterClass.ItemParam.Builder itemParam = ItemParamOuterClass.ItemParam.newBuilder();
+                    var mailItem = MailItem.newBuilder();
+                    var itemParam = EquipParam.newBuilder();
                     itemParam.setItemId(item.itemId);
-                    itemParam.setCount(item.itemCount);
-                    mailItem.setItemParam(itemParam.build());
+                    itemParam.setItemNum(item.itemCount);
+                    mailItem.setEquipParam(itemParam.build());
 
                     mailItems.add(mailItem.build());
                 }
 
-                MailDataOuterClass.MailData.Builder mailData = MailDataOuterClass.MailData.newBuilder();
+                var mailData = MailData.newBuilder();
                 mailData.setMailId(player.getMailId(message));
                 mailData.setMailTextContent(mailTextContent.build());
                 mailData.addAllItemList(mailItems);
@@ -54,13 +59,13 @@ public class PacketMailChangeNotify extends BasePacket {
                 mailData.setImportance(message.importance);
                 mailData.setIsRead(message.isRead);
                 mailData.setIsAttachmentGot(message.isAttachmentGot);
-                mailData.setStateValue(message.stateValue);
+                mailData.setCollectStateValue(message.stateValue);
 
                 proto.addMailList(mailData.build());
             }
         }
 
-        if(delMailIdList != null) {
+        if (delMailIdList != null) {
             proto.addAllDelMailIdList(delMailIdList);
         }
 

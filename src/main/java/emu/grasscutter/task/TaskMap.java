@@ -14,7 +14,7 @@ public final class TaskMap {
     private final Map<String, Task> annotations = new HashMap<>();
     private final Map<String, TaskHandler> afterReset = new HashMap<>();
     private final SchedulerFactory schedulerFactory = new StdSchedulerFactory();
-    
+
     public TaskMap() {
         this(false);
     }
@@ -67,6 +67,40 @@ public final class TaskMap {
         return this;
     }
 
+    public boolean pauseTask(String taskName) {
+        try {
+            Scheduler scheduler = schedulerFactory.getScheduler();
+            scheduler.pauseJob(new JobKey(taskName));
+        } catch (SchedulerException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    public boolean resumeTask(String taskName) {
+        try {
+            Scheduler scheduler = schedulerFactory.getScheduler();
+            scheduler.resumeJob(new JobKey(taskName));
+        } catch (SchedulerException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    public boolean cancelTask(String taskName) {
+        Task task = this.annotations.get(taskName);
+        if (task == null) return false;
+        try {
+            this.unregisterTask(this.tasks.get(taskName));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
     public TaskMap registerTask(String taskName, TaskHandler task) {
         Task annotation = task.getClass().getAnnotation(Task.class);
         this.annotations.put(taskName, annotation);
@@ -79,12 +113,12 @@ public final class TaskMap {
                         .newJob(task.getClass())
                         .withIdentity(taskName)
                         .build();
-            
+
             Trigger convTrigger = TriggerBuilder.newTrigger()
                         .withIdentity(annotation.triggerName())
                         .withSchedule(CronScheduleBuilder.cronSchedule(annotation.taskCronExpression()))
                         .build();
-            
+
             scheduler.scheduleJob(job, convTrigger);
 
             if (annotation.executeImmediately()) {
@@ -99,7 +133,7 @@ public final class TaskMap {
     }
 
     public List<TaskHandler> getHandlersAsList() {
-        return new LinkedList<>(this.tasks.values());
+        return new ArrayList<>(this.tasks.values());
     }
 
     public HashMap<String, TaskHandler> getHandlers() {
@@ -116,7 +150,7 @@ public final class TaskMap {
         classes.forEach(annotated -> {
             try {
                 Task taskData = annotated.getAnnotation(Task.class);
-                Object object = annotated.newInstance();
+                Object object = annotated.getDeclaredConstructor().newInstance();
                 if (object instanceof TaskHandler) {
                     this.registerTask(taskData.taskName(), (TaskHandler) object);
                     if (taskData.executeImmediatelyAfterReset()) {

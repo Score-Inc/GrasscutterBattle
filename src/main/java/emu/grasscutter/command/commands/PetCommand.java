@@ -4,9 +4,9 @@ import emu.grasscutter.Grasscutter;
 import emu.grasscutter.command.Command;
 import emu.grasscutter.command.CommandHandler;
 import emu.grasscutter.data.GameData;
-import emu.grasscutter.data.def.GadgetData;
-import emu.grasscutter.data.def.ItemData;
-import emu.grasscutter.data.def.MonsterData;
+import emu.grasscutter.data.excels.MonsterData;
+import emu.grasscutter.data.excels.ItemData;
+import emu.grasscutter.data.excels.GadgetData;
 import emu.grasscutter.game.entity.EntityItem;
 import emu.grasscutter.game.entity.EntityMonster;
 import emu.grasscutter.game.entity.EntityVehicle;
@@ -17,14 +17,14 @@ import emu.grasscutter.game.world.Scene;
 import emu.grasscutter.utils.Position;
 import emu.grasscutter.utils.Utils;
 
+import lombok.Getter;
+
 import java.util.List;
 
 import static emu.grasscutter.utils.Language.translate;
 
-@Command(label = "pet", usage = "pet <entityId>",
-        description = "Gain an pet near you", permission = "server.pet")
+@Command(label = "pet", aliases = { "p" }, usage = "<entityId>", permission = "server.pet")
 public final class PetCommand implements CommandHandler {
-
 
     @Override
     public void execute(Player sender, Player targetPlayer, List<String> args) {
@@ -41,11 +41,11 @@ public final class PetCommand implements CommandHandler {
                 try {
                     id = Integer.parseInt(args.get(0));
                 } catch (NumberFormatException ignored) {
-                    CommandHandler.sendMessage(sender, translate("commands.generic.error.entityId"));
+                    CommandHandler.sendMessage(sender, translate("commands.generic.invalid.entityId"));
                 }
                 break;
             default:
-                CommandHandler.sendMessage(sender, translate("commands.pet.usage"));
+                sendUsageMessage(sender);
                 return;
         }
 
@@ -53,20 +53,22 @@ public final class PetCommand implements CommandHandler {
         GadgetData gadgetData = GameData.getGadgetDataMap().get(id);
         ItemData itemData = GameData.getItemDataMap().get(id);
         if (monsterData == null && gadgetData == null && itemData == null) {
-            CommandHandler.sendMessage(sender, translate("commands.generic.error.entityId"));
+            CommandHandler.sendMessage(sender, translate("commands.generic.invalid.entityId"));
             return;
         }
         Scene scene = targetPlayer.getScene();
 
         double maxRadius = Math.sqrt(amount * 0.2 / Math.PI);
         for (int i = 0; i < amount; i++) {
-            Position pos = GetRandomPositionInCircle(targetPlayer.getPos(), maxRadius).addY(3);
+            Position pos = GetRandomPositionInCircle(targetPlayer.getPosition(), maxRadius).addY(3);
             GameEntity entity = null;
             if (itemData != null) {
                 entity = new EntityItem(scene, null, itemData, pos, 1, true);
             }
             if (gadgetData != null) {
-                entity = new EntityVehicle(scene, targetPlayer.getSession().getPlayer(), gadgetData.getId(), 0, pos, targetPlayer.getRotation());  // TODO: does targetPlayer.getSession().getPlayer() have some meaning?
+                entity = new EntityVehicle(scene, targetPlayer.getSession().getPlayer(), gadgetData.getId(), 0, pos,
+                        targetPlayer.getRotation()); // TODO: does targetPlayer.getSession().getPlayer() have some
+                                                     // meaning?
                 int gadgetId = gadgetData.getId();
                 switch (gadgetId) {
                     // TODO: Not hardcode this. Waverider (skiff)
@@ -80,7 +82,8 @@ public final class PetCommand implements CommandHandler {
                         entity.addFightProperty(FightProperty.FIGHT_PROP_CHARGE_EFFICIENCY, 0);
                         entity.addFightProperty(FightProperty.FIGHT_PROP_MAX_HP, 10000);
                     }
-                    default -> {}
+                    default -> {
+                    }
                 }
             }
             if (monsterData != null) {
@@ -99,12 +102,17 @@ public final class PetCommand implements CommandHandler {
 
             scene.addEntity(entity);
             Grasscutter.playerPetMap.put(entity.getId(), targetPlayer.getUid());
-            Grasscutter.getLogger().info("玩家 " + targetPlayer.getUid() + "获得了一只宠物 " + String.valueOf(entity.getId()) );
+            // TODO: add translation
+            // Grasscutter.getLogger().info("玩家 " + targetPlayer.getUid() + "获得了一只宠物 " +
+            // String.valueOf(entity.getId()));
+            Grasscutter.getLogger().info("Player UID: " + targetPlayer.getUid() + " Spawned a pet, with ID: "
+                    + String.valueOf(entity.getId()));
         }
-        CommandHandler.sendMessage(sender, translate("commands.spawn.success", Integer.toString(amount), Integer.toString(id)));
+        CommandHandler.sendMessage(sender,
+                translate("commands.spawn.success", Integer.toString(amount), Integer.toString(id)));
     }
 
-    private Position GetRandomPositionInCircle(Position origin, double radius){
+    private Position GetRandomPositionInCircle(Position origin, double radius) {
         Position target = origin.clone();
         double angle = Math.random() * 360;
         double r = Math.sqrt(Math.random() * radius * radius);

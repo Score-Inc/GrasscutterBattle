@@ -1,53 +1,43 @@
 package emu.grasscutter.command.commands;
 
-import emu.grasscutter.Grasscutter;
 import emu.grasscutter.command.Command;
 import emu.grasscutter.command.CommandHandler;
 import emu.grasscutter.game.player.Player;
 import emu.grasscutter.game.props.ClimateType;
-import emu.grasscutter.server.packet.send.PacketSceneAreaWeatherNotify;
 
 import java.util.List;
 
-import static emu.grasscutter.utils.Language.translate;
-
-@Command(label = "weather", usage = "weather <weatherId> [climateId]",
-        description = "Changes the weather.", aliases = {"w"}, permission = "player.weather")
+@Command(label = "weather", aliases = {"w"}, usage = {"weather [<weatherId>] [<climateType>]"}, permission = "player.weather", permissionTargeted = "player.weather.others")
 public final class WeatherCommand implements CommandHandler {
 
     @Override
     public void execute(Player sender, Player targetPlayer, List<String> args) {
-        if (targetPlayer == null) {
-            CommandHandler.sendMessage(sender, translate("commands.execution.need_target"));
+        int weatherId = targetPlayer.getWeatherId();
+        ClimateType climate = ClimateType.CLIMATE_NONE;  // Sending ClimateType.CLIMATE_NONE to Scene.setWeather will use the default climate for that weather
+
+        if (args.isEmpty()) {
+            climate = targetPlayer.getClimate();
+            CommandHandler.sendTranslatedMessage(sender, "commands.weather.status", weatherId, climate.getShortName());
             return;
         }
 
-        int weatherId = 0;
-        int climateId = 1;
-        switch (args.size()) {
-            case 2:
+        for (String arg : args) {
+            ClimateType c = ClimateType.getTypeByShortName(arg.toLowerCase());
+            if (c != ClimateType.CLIMATE_NONE) {
+                climate = c;
+            } else {
                 try {
-                    climateId = Integer.parseInt(args.get(1));
+                    weatherId = Integer.parseInt(arg);
                 } catch (NumberFormatException ignored) {
-                        CommandHandler.sendMessage(sender, translate("commands.weather.invalid_id"));
+                    CommandHandler.sendTranslatedMessage(sender, "commands.generic.invalid.id");
+                    sendUsageMessage(sender);
+                    return;
                 }
-            case 1:
-                try {
-                    weatherId = Integer.parseInt(args.get(0));
-                } catch (NumberFormatException ignored) {
-                    CommandHandler.sendMessage(sender, translate("commands.weather.invalid_id"));
-                }
-                break;
-            default:
-                CommandHandler.sendMessage(sender, translate("commands.weather.usage"));
-                return;
+            }
         }
 
-        ClimateType climate = ClimateType.getTypeByValue(climateId);
-
-        targetPlayer.getScene().setWeather(weatherId);
-        targetPlayer.getScene().setClimate(climate);
-        targetPlayer.getScene().broadcastPacket(new PacketSceneAreaWeatherNotify(targetPlayer));
-        CommandHandler.sendMessage(sender, translate("commands.weather.success", Integer.toString(weatherId), Integer.toString(climateId)));
+        targetPlayer.setWeather(weatherId, climate);
+        climate = targetPlayer.getClimate();  // Might be different to what we set
+        CommandHandler.sendTranslatedMessage(sender, "commands.weather.success", weatherId, climate.getShortName());
     }
 }

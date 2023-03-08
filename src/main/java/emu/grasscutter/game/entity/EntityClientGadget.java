@@ -3,7 +3,6 @@ package emu.grasscutter.game.entity;
 import emu.grasscutter.game.player.Player;
 import emu.grasscutter.game.props.PlayerProperty;
 import emu.grasscutter.game.world.Scene;
-import emu.grasscutter.game.world.World;
 import emu.grasscutter.net.proto.AbilitySyncStateInfoOuterClass.AbilitySyncStateInfo;
 import emu.grasscutter.net.proto.AnimatorParameterValueInfoPairOuterClass.AnimatorParameterValueInfoPair;
 import emu.grasscutter.net.proto.ClientGadgetInfoOuterClass;
@@ -11,7 +10,6 @@ import emu.grasscutter.net.proto.EntityAuthorityInfoOuterClass.EntityAuthorityIn
 import emu.grasscutter.net.proto.EntityClientDataOuterClass.EntityClientData;
 import emu.grasscutter.net.proto.EntityRendererChangedInfoOuterClass.EntityRendererChangedInfo;
 import emu.grasscutter.net.proto.EvtCreateGadgetNotifyOuterClass.EvtCreateGadgetNotify;
-import emu.grasscutter.net.proto.GadgetClientParamOuterClass.GadgetClientParam;
 import emu.grasscutter.net.proto.MotionInfoOuterClass.MotionInfo;
 import emu.grasscutter.net.proto.PropPairOuterClass.PropPair;
 import emu.grasscutter.net.proto.ProtEntityTypeOuterClass.ProtEntityType;
@@ -21,129 +19,92 @@ import emu.grasscutter.net.proto.SceneGadgetInfoOuterClass.SceneGadgetInfo;
 import emu.grasscutter.net.proto.VectorOuterClass.Vector;
 import emu.grasscutter.utils.Position;
 import emu.grasscutter.utils.ProtoHelper;
-import it.unimi.dsi.fastutil.ints.Int2FloatOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2FloatMap;
+import lombok.Getter;
 
 public class EntityClientGadget extends EntityBaseGadget {
-	private final Player owner;
-	
-	private final Position pos;
-	private final Position rot;
-	
-	private int configId;
-	private int campId;
-	private int campType;
-	private int ownerEntityId;
-	private int targetEntityId;
-	private boolean asyncLoad;
-	
-	public EntityClientGadget(Scene scene, Player player, EvtCreateGadgetNotify notify) {
-		super(scene);
-		this.owner = player;
-		this.id = notify.getEntityId();
-		this.pos = new Position(notify.getInitPos());
-		this.rot = new Position(notify.getInitEulerAngles());
-		this.configId = notify.getConfigId();
-		this.campId = notify.getCampId();
-		this.campType = notify.getCampType();
-		this.ownerEntityId = notify.getPropOwnerEntityId();
-		this.targetEntityId = notify.getTargetEntityId();
-		this.asyncLoad = notify.getIsAsyncLoad();
-	}
-	
-	@Override
-	public int getGadgetId() {
-		return configId;
-	}
-	
-	public Player getOwner() {
-		return owner;
-	}
-	
-	public int getCampId() {
-		return campId;
-	}
-	
-	public int getCampType() {
-		return campType;
-	}
+    @Getter private final Player owner;
 
-	public int getOwnerEntityId() {
-		return ownerEntityId;
-	}
-	
-	public int getTargetEntityId() {
-		return targetEntityId;
-	}
+    @Getter(onMethod = @__(@Override))
+    private int gadgetId;
 
-	public boolean isAsyncLoad() {
-		return this.asyncLoad;
-	}
+    @Getter private int campId;
+    @Getter private int campType;
+    @Getter private int ownerEntityId;
+    @Getter private int targetEntityId;
+    @Getter private boolean asyncLoad;
 
-	@Override
-	public void onDeath(int killerId) {
-		
-	}
+    @Getter private int originalOwnerEntityId;
 
-	@Override
-	public Int2FloatOpenHashMap getFightProperties() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    public EntityClientGadget(Scene scene, Player player, EvtCreateGadgetNotify notify) {
+        super(scene, new Position(notify.getInitPos()), new Position(notify.getInitEulerAngles()));
+        this.owner = player;
+        this.id = notify.getEntityId();
+        this.gadgetId = notify.getConfigId();
+        this.campId = notify.getCampId();
+        this.campType = notify.getCampType();
+        this.ownerEntityId = notify.getPropOwnerEntityId();
+        this.targetEntityId = notify.getTargetEntityId();
+        this.asyncLoad = notify.getIsAsyncLoad();
 
-	@Override
-	public Position getPosition() {
-		// TODO Auto-generated method stub
-		return this.pos;
-	}
+        GameEntity owner = scene.getEntityById(this.ownerEntityId);
+        if (owner instanceof EntityClientGadget ownerGadget) {
+            this.originalOwnerEntityId = ownerGadget.getOriginalOwnerEntityId();
+        }
+        else {
+            this.originalOwnerEntityId = this.ownerEntityId;
+        }
+    }
 
-	@Override
-	public Position getRotation() {
-		// TODO Auto-generated method stub
-		return this.rot;
-	}
+    @Override
+    public void onDeath(int killerId) {
+        super.onDeath(killerId); // Invoke super class's onDeath() method.
+    }
 
-	@Override
-	public SceneEntityInfo toProto() {
-		EntityAuthorityInfo authority = EntityAuthorityInfo.newBuilder()
-				.setAbilityInfo(AbilitySyncStateInfo.newBuilder())
-				.setRendererChangedInfo(EntityRendererChangedInfo.newBuilder())
-				.setAiInfo(SceneEntityAiInfo.newBuilder().setIsAiOpen(true).setBornPos(Vector.newBuilder()))
-				.setBornPos(Vector.newBuilder())
-				.build();
-		
-		SceneEntityInfo.Builder entityInfo = SceneEntityInfo.newBuilder()
-				.setEntityId(getId())
-				.setEntityType(ProtEntityType.PROT_ENTITY_GADGET)
-				.setMotionInfo(MotionInfo.newBuilder().setPos(getPosition().toProto()).setRot(getRotation().toProto()).setSpeed(Vector.newBuilder()))
-				.addAnimatorParaList(AnimatorParameterValueInfoPair.newBuilder())
-				.setEntityClientData(EntityClientData.newBuilder())
-				.setEntityAuthorityInfo(authority)
-				.setLifeState(1);
-		
-		PropPair pair = PropPair.newBuilder()
-				.setType(PlayerProperty.PROP_LEVEL.getId())
-				.setPropValue(ProtoHelper.newPropValue(PlayerProperty.PROP_LEVEL, 1))
-				.build();
-		entityInfo.addPropList(pair);
-		
-		ClientGadgetInfoOuterClass.ClientGadgetInfo clientGadget = ClientGadgetInfoOuterClass.ClientGadgetInfo.newBuilder()
-				.setCampId(this.getCampId())
-				.setCampType(this.getCampType())
-				.setOwnerEntityId(this.getOwnerEntityId())
-				.setTargetEntityId(this.getTargetEntityId())
-				.setAsyncLoad(this.isAsyncLoad())
-				.build();
-		
-		SceneGadgetInfo.Builder gadgetInfo = SceneGadgetInfo.newBuilder()
-				.setGadgetId(this.getGadgetId())
-				.setOwnerEntityId(this.getOwnerEntityId())
-				.setIsEnableInteract(true)
-				.setClientGadget(clientGadget)
-				.setPropOwnerEntityId(this.getOwnerEntityId())
-				.setAuthorityPeerId(this.getOwner().getPeerId());
+    @Override public Int2FloatMap getFightProperties() {return null;}
 
-		entityInfo.setGadget(gadgetInfo);
-		
-		return entityInfo.build();
-	}
+    @Override
+    public SceneEntityInfo toProto() {
+        EntityAuthorityInfo authority = EntityAuthorityInfo.newBuilder()
+                .setAbilityInfo(AbilitySyncStateInfo.newBuilder())
+                .setRendererChangedInfo(EntityRendererChangedInfo.newBuilder())
+                .setAiInfo(SceneEntityAiInfo.newBuilder().setIsAiOpen(true).setBornPos(Vector.newBuilder()))
+                .setBornPos(Vector.newBuilder())
+                .build();
+
+        SceneEntityInfo.Builder entityInfo = SceneEntityInfo.newBuilder()
+                .setEntityId(getId())
+                .setEntityType(ProtEntityType.PROT_ENTITY_TYPE_GADGET)
+                .setMotionInfo(MotionInfo.newBuilder().setPos(getPosition().toProto()).setRot(getRotation().toProto()).setSpeed(Vector.newBuilder()))
+                .addAnimatorParaList(AnimatorParameterValueInfoPair.newBuilder())
+                .setEntityClientData(EntityClientData.newBuilder())
+                .setEntityAuthorityInfo(authority)
+                .setLifeState(1);
+
+        PropPair pair = PropPair.newBuilder()
+                .setType(PlayerProperty.PROP_LEVEL.getId())
+                .setPropValue(ProtoHelper.newPropValue(PlayerProperty.PROP_LEVEL, 1))
+                .build();
+        entityInfo.addPropList(pair);
+
+        ClientGadgetInfoOuterClass.ClientGadgetInfo clientGadget = ClientGadgetInfoOuterClass.ClientGadgetInfo.newBuilder()
+                .setCampId(this.getCampId())
+                .setCampType(this.getCampType())
+                .setOwnerEntityId(this.getOwnerEntityId())
+                .setTargetEntityId(this.getTargetEntityId())
+                .setAsyncLoad(this.isAsyncLoad())
+                .build();
+
+        SceneGadgetInfo.Builder gadgetInfo = SceneGadgetInfo.newBuilder()
+                .setGadgetId(this.getGadgetId())
+                .setOwnerEntityId(this.getOwnerEntityId())
+                .setIsEnableInteract(true)
+                .setClientGadget(clientGadget)
+                .setPropOwnerEntityId(this.getOwnerEntityId())
+                .setAuthorityPeerId(this.getOwner().getPeerId());
+
+        entityInfo.setGadget(gadgetInfo);
+
+        return entityInfo.build();
+    }
 }

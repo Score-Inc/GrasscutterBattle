@@ -1,6 +1,6 @@
 package emu.grasscutter.server.packet.recv;
 
-import emu.grasscutter.Grasscutter;
+import emu.grasscutter.game.quest.enums.QuestTrigger;
 import emu.grasscutter.net.packet.Opcodes;
 import emu.grasscutter.net.packet.PacketHandler;
 import emu.grasscutter.net.packet.PacketOpcodes;
@@ -13,12 +13,17 @@ public class HandlerEvtDoSkillSuccNotify extends PacketHandler {
     @Override
     public void handle(GameSession session, byte[] header, byte[] payload) throws Exception {
         EvtDoSkillSuccNotify notify = EvtDoSkillSuccNotify.parseFrom(payload);
-        // TODO: Will be used for deducting stamina for charged skills.
 
-        int caster = notify.getCasterId();
+        var player = session.getPlayer();
         int skillId = notify.getSkillId();
+        int casterId = notify.getCasterId();
 
-        session.getPlayer().getMovementManager().notifySkill(caster, skillId);
+        // Call skill perform in the player's ability manager.
+        player.getAbilityManager().onSkillStart(session.getPlayer(), skillId, casterId);
+
+        // Handle skill notify in other managers.
+        player.getStaminaManager().handleEvtDoSkillSuccNotify(session, skillId, casterId);
+        player.getEnergyManager().handleEvtDoSkillSuccNotify(session, skillId, casterId);
+        player.getQuestManager().triggerEvent(QuestTrigger.QUEST_CONTENT_SKILL, skillId, 0);
     }
-
 }

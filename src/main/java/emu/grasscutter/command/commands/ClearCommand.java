@@ -1,109 +1,100 @@
 package emu.grasscutter.command.commands;
 
-import emu.grasscutter.Grasscutter;
 import emu.grasscutter.command.Command;
 import emu.grasscutter.command.CommandHandler;
 import emu.grasscutter.game.inventory.GameItem;
 import emu.grasscutter.game.inventory.Inventory;
 import emu.grasscutter.game.inventory.ItemType;
 import emu.grasscutter.game.player.Player;
+import lombok.Setter;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
-import static emu.grasscutter.utils.Language.translate;
+import static emu.grasscutter.command.CommandHelpers.*;
 
-@Command(label = "clear", usage = "clear <all|wp|art|mat>", //Merged /clearartifacts and /clearweapons to /clear <args> [uid]
-        description = "Deletes unequipped unlocked items, including yellow rarity ones from your inventory",
-        aliases = {"clear"}, permission = "player.clearinv")
-
+@Command(
+    label = "clear",
+    usage = {"(all|wp|art|mat) [lv<max level>] [r<max refinement>] [<max rarity>*]"},
+    permission = "player.clearinv",
+    permissionTargeted = "player.clearinv.others")
 public final class ClearCommand implements CommandHandler {
+
+    private static final Map<Pattern, BiConsumer<ClearItemParameters, Integer>> intCommandHandlers = Map.ofEntries(
+        Map.entry(lvlRegex, ClearItemParameters::setLvl),
+        Map.entry(refineRegex, ClearItemParameters::setRefinement),
+        Map.entry(rankRegex, ClearItemParameters::setRank)
+    );
+
+    private static class ClearItemParameters {
+        @Setter public int lvl = 1;
+        @Setter public int refinement = 1;
+        @Setter public int rank = 4;
+    }
+
+    private Stream<GameItem> getOther(ItemType type, Inventory playerInventory, ClearItemParameters param) {
+        return playerInventory.getItems().values().stream()
+                .filter(item -> item.getItemType() == type)
+                .filter(item -> item.getItemData().getRankLevel() <= param.rank)
+                .filter(item -> !item.isLocked() && !item.isEquipped());
+    }
+
+    private Stream<GameItem> getWeapons(Inventory playerInventory, ClearItemParameters param) {
+        return getOther(ItemType.ITEM_WEAPON, playerInventory, param)
+                .filter(item -> item.getLevel() <= param.lvl)
+                .filter(item -> item.getRefinement() < param.refinement);
+    }
+
+    private Stream<GameItem> getRelics(Inventory playerInventory, ClearItemParameters param) {
+        return getOther(ItemType.ITEM_RELIQUARY, playerInventory, param)
+                .filter(item -> item.getLevel() <= param.lvl + 1);
+    }
 
     @Override
     public void execute(Player sender, Player targetPlayer, List<String> args) {
-        if (targetPlayer == null) {
-            CommandHandler.sendMessage(sender, translate("commands.execution.need_target"));
-            return;
-        }
-        if (args.size() < 1) {
-            CommandHandler.sendMessage(sender, translate("commands.clear.command_usage"));
-            return;
-        }
         Inventory playerInventory = targetPlayer.getInventory();
-        List<GameItem> toDelete = null;
-        
+        ClearItemParameters param = new ClearItemParameters();
+
+        // Extract any tagged int arguments (e.g. "lv90", "x100", "r5")
+        parseIntParameters(args, param, intCommandHandlers);
+
+        if (args.size() < 1) {
+            sendUsageMessage(sender);
+            return;
+        }
+
+        String playerString = targetPlayer.getNickname();  // Should probably be UID instead but whatever
         switch (args.get(0)) {
             case "wp" -> {
-            	toDelete = playerInventory.getItems().values().stream()
-                        .filter(item -> item.getItemType() == ItemType.ITEM_WEAPON)
-                        .filter(item -> !item.isLocked() && !item.isEquipped())
-                        .toList();
-                CommandHandler.sendMessage(sender, translate("commands.clear.weapons", targetPlayer.getNickname()));
+                playerInventory.removeItems(getWeapons(playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.weapons", playerString);
             }
             case "art" -> {
-            	toDelete = playerInventory.getItems().values().stream()
-                        .filter(item -> item.getItemType() == ItemType.ITEM_RELIQUARY)
-                        .filter(item -> item.getLevel() == 1 && item.getExp() == 0)
-                        .filter(item -> !item.isLocked() && !item.isEquipped())
-                        .toList();
-                CommandHandler.sendMessage(sender, translate("commands.clear.artifacts", targetPlayer.getNickname()));
+                playerInventory.removeItems(getRelics(playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.artifacts", playerString);
             }
             case "mat" -> {
-            	toDelete = playerInventory.getItems().values().stream()
-                        .filter(item -> item.getItemType() == ItemType.ITEM_MATERIAL)
-                        .filter(item -> item.getLevel() == 1 && item.getExp() == 0)
-                        .filter(item -> !item.isLocked() && !item.isEquipped())
-                        .toList();
-                CommandHandler.sendMessage(sender, translate("commands.clear.materials", targetPlayer.getNickname()));
+                playerInventory.removeItems(getOther(ItemType.ITEM_MATERIAL, playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.materials", playerString);
             }
             case "all" -> {
-            	toDelete = playerInventory.getItems().values().stream()
-                        .filter(item1 -> item1.getItemType() == ItemType.ITEM_RELIQUARY)
-                        .filter(item1 -> item1.getLevel() == 1 && item1.getExp() == 0)
-                        .filter(item1 -> !item1.isLocked() && !item1.isEquipped())
-                        .toList();
-                CommandHandler.sendMessage(sender, translate("commands.clear.artifacts", targetPlayer.getNickname()));
-                playerInventory.removeItems(toDelete);
-                
-                toDelete = playerInventory.getItems().values().stream()
-                        .filter(item2 -> item2.getItemType() == ItemType.ITEM_MATERIAL)
-                        .filter(item2 -> !item2.isLocked() && !item2.isEquipped())
-                        .toList();
-                playerInventory.removeItems(toDelete);
-                CommandHandler.sendMessage(sender, translate("commands.clear.materials", targetPlayer.getNickname()));
-                
-                toDelete = playerInventory.getItems().values().stream()
-                        .filter(item3 -> item3.getItemType() == ItemType.ITEM_WEAPON)
-                        .filter(item3 -> item3.getLevel() == 1 && item3.getExp() == 0)
-                        .filter(item3 -> !item3.isLocked() && !item3.isEquipped())
-                        .toList();
-                playerInventory.removeItems(toDelete);
-                CommandHandler.sendMessage(sender, translate("commands.clear.weapons", targetPlayer.getNickname()));
-                
-                toDelete = playerInventory.getItems().values().stream()
-                        .filter(item4 -> item4.getItemType() == ItemType.ITEM_FURNITURE)
-                        .filter(item4 -> !item4.isLocked() && !item4.isEquipped())
-                        .toList();
-                playerInventory.removeItems(toDelete);
-                CommandHandler.sendMessage(sender, translate("commands.clear.furniture", targetPlayer.getNickname()));
-                
-                toDelete = playerInventory.getItems().values().stream()
-                        .filter(item5 -> item5.getItemType() == ItemType.ITEM_DISPLAY)
-                        .filter(item5 -> !item5.isLocked() && !item5.isEquipped())
-                        .toList();
-                playerInventory.removeItems(toDelete);
-                CommandHandler.sendMessage(sender, translate("commands.clear.displays", targetPlayer.getNickname()));
-                
-                toDelete = playerInventory.getItems().values().stream()
-                        .filter(item6 -> item6.getItemType() == ItemType.ITEM_VIRTUAL)
-                        .filter(item6 -> !item6.isLocked() && !item6.isEquipped())
-                        .toList();
-                CommandHandler.sendMessage(sender, translate("commands.clear.virtuals", targetPlayer.getNickname()));
-                CommandHandler.sendMessage(sender, translate("commands.clear.everything", targetPlayer.getNickname()));
+                playerInventory.removeItems(getRelics(playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.artifacts", playerString);
+                playerInventory.removeItems(getWeapons(playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.weapons", playerString);
+                playerInventory.removeItems(getOther(ItemType.ITEM_MATERIAL, playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.materials", playerString);
+                playerInventory.removeItems(getOther(ItemType.ITEM_FURNITURE, playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.furniture", playerString);
+                playerInventory.removeItems(getOther(ItemType.ITEM_DISPLAY, playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.displays", playerString);
+                playerInventory.removeItems(getOther(ItemType.ITEM_VIRTUAL, playerInventory, param).toList());
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.virtuals", playerString);
+                CommandHandler.sendTranslatedMessage(sender, "commands.clear.everything", playerString);
             }
-        }
-        
-        if (toDelete != null) {
-        	playerInventory.removeItems(toDelete);
         }
     }
 }
